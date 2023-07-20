@@ -1,0 +1,14 @@
+首先，在JVM的堆内存里面分为Eden Space，Survivor Space，Old Generation。
+
+当我们使用new关键字创建一个对象的时候，JVM会先在Eden Space分配一块内存来存储这个对象。当Eden Space的内存空间不足的时候，会触发Young GC进行对象回收。那些因为存在
+引用关系而无法回收的对象，JVM会把它们转移到Survivor Space。
+
+Survivor Space内部又分为From Survivor空间和To Survivor空间，刚从Eden区未回收转移过来的对象会分配到From区，每经历一次Young GC,这些没有办法被回收的对象就会在
+From区和To区来回移动，每移动一次，这个对象的GC年龄就加1。默认情况下GC年龄达到15的时候，JVM就会把这个对象移动到Old Generation。
+
+其次，一个对象的GC年龄，是存储在对象头里面的，一个Java对象在JVM内存中的布局由三个部分组成，分别是对象头，实例数据，对齐填充。而对象头(Mark Word)里面有4个bit位来存
+储GC年龄。而4个bit位能够存储的最大数值是1111(十进制就是15)，所以从这个角度来说，JVM分代年龄之所以设置成15次是因为他能够存储的数值就是15。
+
+虽然JVM提供了参数来设置分代年龄的大小，但是这个大小不能超过15。而从设计角度来看，当一个对象触发了最大值15次GC，还没有办法被回收，就只能移动到Old Generation了。
+
+另外，设计者还引入了动态对象年龄判断的方式来决定把对象转移到Old Generation，也就是说不管这个对象的GC年龄是否达到了15次，只要满足动态年龄判断的依据，也同样会转移到Old Generation。

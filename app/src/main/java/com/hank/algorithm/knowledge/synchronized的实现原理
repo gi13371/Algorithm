@@ -1,0 +1,86 @@
+在 Java 里面， 最基本的互斥同步手段就是 synchronized 关键字， 这是一种块结构（Block Structured） 的同步语法。它解决的是多个线程之间访问资源的同步
+性，synchronized 关键字可以保证被它修饰的方法或者代码块在任意时刻只能有一个线程执行。
+
+synchronized 关键字可以保证原子性、可见性和有序性，相较于 volatile 关键字功能更加强大。
+
+Synchronized作用
+原子性：synchronized保证语句块内操作是原子的
+可见性：synchronized保证可见性（通过“在执行unlock之前，必须先把此变量同步回主内存”实现）
+有序性：synchronized保证有序性（通过“一个变量在同一时刻只允许一条线程对其进行lock操作”）
+
+synchronized的使用范围
+修饰实例方法，对当前实例对象加锁
+修饰静态方法，对当前类的Class对象加锁
+修饰代码块，对synchronized括号内的对象加锁
+解释：
+1）当synchronized作用在实例方法时，监视器锁（monitor）便是对象实例（this）
+2）当synchronized作用在静态方法时，监视器锁（monitor）便是对象的Class实例，因为Class数据存在于永久代，因此静态方法锁相当于该类的一个全局锁；
+3）当synchronized作用在某一个对象实例时，监视器锁（monitor）便是括号括起来的对象实例；
+注意，synchronized 内置锁是一种对象锁（锁的是对象而非引用变量），作用粒度是对象 ，可以用来实现对临界资源的同步互斥访问 ，是可重入的。
+
+Synchronized底层原理（较为重要的底层知识点）
+        在《Happens-Before规则详解》一文中讲解 Happens-Before 规则时，其中有个规则叫做「管程锁定规则」，具体定义为：synchronized 是 Java 对管程的实现，管程
+        中的锁在 Java 里是隐式实现的，隐式加锁、释放锁，对一个锁的解锁 Happens-Before 于后续对这个锁的加锁。
+
+        再往深处来说，Java 虚拟机中的同步(synchronization)是基于进入和退出管程(Monitor)对象实现的， 无论是显式同步(有明确的 monitorenter 和 monitorexit 指
+        令，即同步代码块)，还是隐式同步都是如此。
+
+        在 Java 语言中，同步用的最多的地方可能是被 synchronized 修饰的同步方法。同步方法并不是由 monitorenter 和 monitorexit 指令来实现同步的，而是由方法调用
+        指令读取运行时常量池中方法的 ACC_SYNCHRONIZED 标志来隐式实现的，关于这点，稍后详细分析。下面先来了解一个概念 Java对象头，这对深入理解synchronized 实现原理非常关键。
+Java对象头与Monitor
+        synchronized 用的锁是存在 Java 对象头里的表示。在 JVM 中，对象在内存中的布局分为三块区域：对象头、实例数据和对齐填充。
+
+        对象头包括两部分信息：标记字段（Mark Word）和类型指针（Class Metadata Address），如果对象是一个数组，还需要一块用于记录数组长度的数据。
+其中 Mark Word 在默认情况下存储着对象的 HashCode、分代年龄、锁标记位等
+ 在 Java 早期版本中，synchronized 属于重量级锁，效率低下，因为监视器锁（monitor）是依赖于底层的操作系统的 Mutex Lock 来实现的，Java 的线程是映射到操作系统的
+ 原生线程之上的。重量级锁的锁标识位为10，其中指针指向的是 monitor 对象的起始地址。每个 Java 对象都关联着一个 monitor，对象与其 monitor 之间的关系有存在多种实现
+ 方式，如 monitor 可以与对象一起创建销毁，或当线程试图获取对象锁时自动生成，但当一个 monitor 被某个线程持有后，它便处于锁定状态。在 Java 虚拟机(HotSpot)中
+ ，monitor 是由ObjectMonitor 实现的，其主要数据结构如下（位于HotSpot虚拟机源码 ObjectMonitor.hpp文件，C++实现的）
+ObjectMonitor 中有两个队列，_WaitSet 和 _EntryList。
+WaitSet 用来保存 ObjectWaiter 对象列表( 每个 wait 状态的线程都会被封装成 ObjectWaiter对象)，EntryList 用来保存处于 block 状态的线程封装的 ObjectWaiter对
+象，owner 指向持有 ObjectMonitor 对象的线程。
+
+
+这里简单描述一下 synchronized（重量级锁）的加锁和解锁过程：当多个线程同时访问一段同步代码时，首先会进入 EntryList 集合，当线程获取到对象的 monitor 后，owner 变量
+会设置为当前线程，同时 monitor 中的计数器 count 加1。若线程调用 wait() 方法，将释放当前持有的 monitor，owner 变量恢复为 null，count 自减1，同时该线程进入
+WaitSet集合中等待被唤醒。若当前线程执行完毕也将释放 monitor 复位 count 变量的值，以便其他线程进入获取 monitor。
+由此可知，monitor 对象存在于每个 Java 对象的对象头中(存储的指针的指向)，synchronized 锁便是通过这种方式获取锁的，这也是为什么 Java 中任意对象可以作为锁的原因。
+
+a.synchronized 同步语句块的情况举例
+   synchronized 同步语句块的实现使用的是 monitorenter 和 monitorexit 指令，其中 monitorenter 指令指向同步代码块的开始位置，monitorexit 指令则指明同步代码
+   块的结束位置。         当执行 monitorenter 指令时，线程试图获取锁也就是获取 monitor 的持有权。当计数器为0则可以成功获取，获取后将锁计数器设为1也就是加1。相应
+   的在执行 monitorexit 指令后，将锁计数器设为0，表明锁被释放。如果获取对象锁失败，那当前线程就要阻塞等待，直到锁被另外一个线程释放为止。这里提到的锁计数器，即上文
+   提到的 count 变量。另外还有锁重入的情况，当线程获取该对象的锁后，在未释放锁之前，可以直接进行代码调用，不需要等待。具体到代码实现，就是重入时重入计数器会加1，这块逻
+   辑在 enter()方法中有描述。
+
+   值得注意的是编译器将会确保无论方法通过何种方式完成，方法中调用过的每条 monitorenter 指令都要执行其对应的 monitorexit 指令，而无论这个方法是正常结束还是异
+   常结束。为了保证在方法异常完成时 monitorenter 和 monitorexit 指令依然可以正确配对执行，编译器会自动产生一个异常处理器，这个异常处理器声明可处理所有的异
+   常，它的目的就是用来执行 monitorexit 指令。从字节码中也可以看出多了一个monitorexit指令，它就是异常结束时被执行的释放monitor 的指令。
+
+b.synchronized 同步方法的情况举例
+方法级的同步是隐式，即无需通过字节码指令来控制的，它实现在方法调用和返回操作之中。JVM可以从方法常量池中的方法表结构(method_info Structure) 中的
+ ACC_SYNCHRONIZED 访问标志区分一个方法是否同步方法。当方法调用时，调用指令将会检查方法的 ACC_SYNCHRONIZED 访问标志是否被设置，如果设置了，执行线程将先
+ 持有 monitor ， 然后再执行方法，最后再方法完成(无论是正常完成还是非正常完成)时释放 monitor。
+  synchronized 修饰的方法并没有 monitorenter 指令和 monitorexit 指令，取得代之的确实是 ACC_SYNCHRONIZED 标识，该标识指明了该方法是一个同步方法，JVM 通
+  过该 ACC_SYNCHRONIZED 访问标志来辨别一个方法是否声明为同步方法，从而执行相应的同步调用。
+
+JVM对synchronized的优化
+        JDK1.6 对锁的实现引入了大量的优化，如偏向锁、轻量级锁、自旋锁、适应性自旋锁、锁消除、锁粗化等技术来减少锁操作的开销。
+        3.1 无锁
+        无锁没有对资源进行锁定，所有的线程都能访问并修改同一个资源，但同时只有一个线程能修改成功。
+
+        3.2 偏向锁
+        偏向锁是JDK1.6中引用的优化，它的目的是消除数据在无竞争情况下的同步原语，进一步提高程序的性能。大多数情况下，锁不仅不存在多线程竞争，而且总是由同一线程多次获得，为了让线程获得锁的代价更低而引入了偏向锁。
+
+        偏向锁会偏向于第一个获得它的线程，如果在接下来的执行过程中，该锁没有被其他的线程获取，则持有偏向锁的线程将永远不需要同步。
+
+        3.3 轻量级锁
+        轻量级锁也是在JDK1.6中引入的新型锁机制。它不是用来替换重量级锁的，它的本意是在没有多线程竞争的情况下，减少传统的重量级锁使用操作系统互斥量产生的性能消耗。
+
+        是指当锁是偏向锁的时候，被另外的线程所访问，偏向锁就会升级为轻量级锁，其他线程会通过自旋的形式尝试获取锁，不会阻塞，从而提高性能。
+
+        3.4 重量级锁
+        指的是原始的Synchronized的实现，重量级锁的特点：其他线程试图获取锁时，都会被阻塞，只有持有锁的线程释放锁之后才会唤醒这些线程。
+
+原文链接：https://blog.csdn.net/weixin_42460087/article/details/126474481
+原文链接：https://blog.csdn.net/CoderTnT/article/details/126664713

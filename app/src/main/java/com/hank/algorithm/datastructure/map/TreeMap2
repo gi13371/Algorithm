@@ -1,0 +1,9 @@
+TreeMap或许不如HashMap那么常用，但存在即合理，它也有自己的应用场景，TreeMap可以实现元素的自动排序。
+
+一. TreeMap概述
+TreeMap存储K-V键值对，通过红黑树（R-B tree）实现，没有HashMap哈希表数组；
+TreeMap继承了NavigableMap接口，NavigableMap接口继承了SortedMap接口，可支持一系列的导航定位以及导航操作的方法，当然只是提供了接口，需要TreeMap自己去实现；
+TreeMap实现了Cloneable接口，可被克隆，实现了Serializable接口，可序列化；
+TreeMap因为是通过红黑树实现，红黑树结构天然支持排序，默认情况下通过Key值的自然顺序进行排序；
+
+原文链接：https://blog.csdn.net/weixin_37576193/article/details/107783584

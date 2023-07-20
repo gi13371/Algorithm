@@ -1,0 +1,80 @@
+浅拷贝和深拷贝
+浅拷贝
+浅拷贝也可以实现对象克隆，从这名字你或许可以知道，这种拷贝一定存在某种缺陷，是的，它就是存在一定的缺陷，先来看看浅拷贝的定义：「如果原型对象的成员变量是值类型，将复制一份给
+克隆对象，也就是说在堆中拥有独立的空间；如果原型对象的成员变量是引用类型，则将引用对象的地址复制一份给克隆对象，也就是说原型对象和克隆对象的成员变量指向相同的内存地址。换句
+话说，在浅克隆中，当对象被复制时只复制它本身和其中包含的值类型的成员变量，而引用类型的成员对象并没有复制。
+要实现对象浅拷贝还是比较简单的，只需要被复制类需要实现 Cloneable 接口，重写 clone 方法即可，对 person 类进行改造，使其可以支持浅拷贝。
+public class Person implements Cloneable {
+    // 姓名
+    private String name;
+    // 年龄
+    private int age;
+
+ /*
+ * 重写 clone 方法，需要将权限改成 public ，直接调用父类的 clone 方法就好了
+ */
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        return super.clone();
+    }
+    ...省略...
+}
+另外，特别注意：
+「String、Integer 等包装类都是不可变的对象，当需要修改不可变对象的值时，需要在内存中生成一个新的对象来存放新的值，然后将原来的引用指向新的地址，所以在这里我们修改了
+person1 对象的 name 属性值，person1 对象的 name 字段指向了内存中新的 name 对象，但是我们并没有改变 person 对象的 name 字段的指向，所以 person 对象的 name
+ 还是指向内存中原来的 name 地址，也就没有变化」
+
+ 深拷贝
+ 深拷贝也是对象克隆的一种方式，相对于浅拷贝，「深拷贝是一种完全拷贝，无论是值类型还是引用类型都会完完全全的拷贝一份，在内存中生成一个新的对象」，简单点说就是拷贝对象和被拷贝
+ 对象没有任何关系，互不影响。
+ 深拷贝有两种方式，一种是跟浅拷贝一样实现 Cloneable 接口，另一种是实现 Serializable 接口，用序列化的方式来实现深拷贝。
+    a.实现 Cloneable 接口的方式跟浅拷贝相差不大，我们需要引用对象也实现 Cloneable 接口，
+    public class PersonDesc implements Cloneable{
+
+        // 描述
+        private String desc;
+     ...省略...
+        @Override
+        public Object clone() throws CloneNotSupportedException {
+            return super.clone();
+        }
+    }
+    public class Person implements Cloneable {
+        // 姓名
+        private String name;
+
+     /**
+     * clone 方法不是简单的调用super的clone 就好，
+     */
+        @Override
+        public Object clone() throws CloneNotSupportedException {
+            Person person = (Person)super.clone();
+            // 需要将引用对象也克隆一次
+            person.personDesc = (PersonDesc) personDesc.clone();
+            return person;
+        }
+     ...省略...
+    }
+    b.实现 Serializable 接口方式也可以实现深拷贝，而且这种方式还可以解决多层克隆的问题，多层克隆就是引用类型里面又有引用类型，层层嵌套下去，用 Cloneable 方式实现还是比较麻烦的，一不小心写
+    错了就不能实现深拷贝了，使用 Serializable 序列化的方式就需要所有的对象对实现 Serializable 接口:
+
+        public Person clone() {
+            Person person = null;
+            try { // 将该对象序列化成流,因为写在流里的是对象的一个拷贝，而原对象仍然存在于JVM里面。所以利用这个特性可以实现对象的深拷贝
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                ObjectOutputStream oos = new ObjectOutputStream(baos);
+                oos.writeObject(this);
+                // 将流序列化成对象
+                ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                person = (Person) ois.readObject();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            return person;
+        }
+      ...省略...
+    }
+https://zhuanlan.zhihu.com/p/144447326

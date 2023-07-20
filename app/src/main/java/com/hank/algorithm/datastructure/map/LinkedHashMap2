@@ -1,0 +1,6 @@
+LinkedHashMap 继承自 HashMap，在 HashMap 基础上，通过维护一条双向链表，解决了 HashMap 不能随时保持遍历顺序和插入顺序一致的问题。在一些场景下，该特性很有用，比如缓存。在实现上，LinkedHashMap 很多方法直接继承自 HashMap，仅为维护双向链表覆写了部分方法。
+
+当我们希望有顺序地去存储key-value时，就需要使用LinkedHashMap了
+
+原文链接：https://blog.csdn.net/u012860938/article/details/95613684
+
